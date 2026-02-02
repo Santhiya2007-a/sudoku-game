@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sudoku</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    background: #fde6ee;
+    font-family: "Segoe UI", sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.card {
+    width: 360px;
+    background: #fff0f6;
+    padding: 20px;
+    border-radius: 24px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+h1 {
+    text-align: center;
+    color: #c1356d;
+    margin-bottom: 12px;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    color: #8a2c4c;
+    margin-bottom: 10px;
+}
+
+.board-wrapper {
+    display: flex;
+    justify-content: center;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+td {
+    border: 1px solid #e07aa0;
+}
+
+td.thick {
+    border-width: 2px;
+}
+
+input {
+    width: 34px;
+    height: 34px;
+    border: none;
+    text-align: center;
+    font-size: 16px;
+    background: #fde6ee;
+    outline: none;
+}
+
+input.fixed {
+    background: #f2cfe0;
+    font-weight: bold;
+}
+
+input.wrong {
+    background: #ffb3c6;
+}
+
+.buttons {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+button {
+    padding: 12px;
+    border: none;
+    border-radius: 25px;
+    background: #ff8fbe;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+button:hover {
+    background: #ff6fae;
+}
+</style>
+</head>
+
+<body>
+<div class="card">
+
+<h1>SUDOKU</h1>
+
+<div class="stats">
+    <div>Time<br><b id="time">00:00</b></div>
+    <div>Mistakes<br><b id="mistakes">0</b></div>
+</div>
+
+<div class="board-wrapper">
+    <table id="board"></table>
+</div>
+
+<div class="buttons">
+    <button onclick="resetBoard()">Reset</button>
+    <button onclick="newGame()">New Game</button>
+    <button onclick="autoSolve()">Auto Solve</button>
+    <button onclick="showStats()">Show Stats</button>
+</div>
+
+</div>
+
+<script>
+const puzzleBase = [
+[5,3,0,0,7,0,0,0,0],
+[6,0,0,1,9,5,0,0,0],
+[0,9,8,0,0,0,0,6,0],
+[8,0,0,0,6,0,0,0,3],
+[4,0,0,8,0,3,0,0,1],
+[7,0,0,0,2,0,0,0,6],
+[0,6,0,0,0,0,2,8,0],
+[0,0,0,4,1,9,0,0,5],
+[0,0,0,0,8,0,0,7,9]
+];
+
+let puzzle, grid, solution;
+let mistakes = 0;
+let seconds = 0;
+let timer;
+
+const board = document.getElementById("board");
+
+function startTimer() {
+    clearInterval(timer);
+    seconds = 0;
+    timer = setInterval(() => {
+        seconds++;
+        const m = String(Math.floor(seconds / 60)).padStart(2, "0");
+        const s = String(seconds % 60).padStart(2, "0");
+        document.getElementById("time").textContent = `${m}:${s}`;
+    }, 1000);
+}
+
+function drawBoard(disableAll = false) {
+    board.innerHTML = "";
+    for (let r = 0; r < 9; r++) {
+        const row = document.createElement("tr");
+        for (let c = 0; c < 9; c++) {
+            const td = document.createElement("td");
+            if (r % 3 === 0) td.classList.add("thick");
+            if (c % 3 === 0) td.classList.add("thick");
+
+            const input = document.createElement("input");
+
+            if (puzzle[r][c] !== 0) {
+                input.value = puzzle[r][c];
+                input.disabled = true;
+                input.classList.add("fixed");
+            } else {
+                input.value = grid[r][c] || "";
+                input.disabled = disableAll;
+                input.oninput = () => {
+                    const v = parseInt(input.value);
+                    if (v >= 1 && v <= 9) {
+                        grid[r][c] = v;
+                        if (v !== solution[r][c]) {
+                            if (!input.classList.contains("wrong")) {
+                                mistakes++;
+                                document.getElementById("mistakes").textContent = mistakes;
+                            }
+                            input.classList.add("wrong");
+                        } else {
+                            input.classList.remove("wrong");
+                        }
+                    } else {
+                        input.value = "";
+                        input.classList.remove("wrong");
+                        grid[r][c] = 0;
+                    }
+                };
+            }
+
+            td.appendChild(input);
+            row.appendChild(td);
+        }
+        board.appendChild(row);
+    }
+}
+
+function isValid(b,r,c,n){
+    for(let i=0;i<9;i++)
+        if(b[r][i]==n||b[i][c]==n) return false;
+    let sr=r-r%3, sc=c-c%3;
+    for(let i=0;i<3;i++)
+        for(let j=0;j<3;j++)
+            if(b[sr+i][sc+j]==n) return false;
+    return true;
+}
+
+function solve(b){
+    for(let r=0;r<9;r++)
+        for(let c=0;c<9;c++)
+            if(b[r][c]==0){
+                for(let n=1;n<=9;n++)
+                    if(isValid(b,r,c,n)){
+                        b[r][c]=n;
+                        if(solve(b)) return true;
+                        b[r][c]=0;
+                    }
+                return false;
+            }
+    return true;
+}
+
+function newGame() {
+    puzzle = JSON.parse(JSON.stringify(puzzleBase));
+    grid = JSON.parse(JSON.stringify(puzzle));
+    solution = JSON.parse(JSON.stringify(puzzle));
+    solve(solution);
+    mistakes = 0;
+    document.getElementById("mistakes").textContent = 0;
+    startTimer();
+    drawBoard();
+}
+
+function resetBoard() {
+    grid = JSON.parse(JSON.stringify(puzzle));
+    mistakes = 0;
+    document.getElementById("mistakes").textContent = 0;
+    drawBoard();
+}
+
+function autoSolve() {
+    grid = JSON.parse(JSON.stringify(solution));
+    drawBoard(true); // redraw AFTER updating grid
+}
+
+function showStats() {
+    alert(`Time: ${document.getElementById("time").textContent}\nMistakes: ${mistakes}`);
+}
+
+newGame();
+</script>
+</body>
+</html>
